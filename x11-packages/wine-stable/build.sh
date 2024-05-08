@@ -75,7 +75,7 @@ fi
 
 # 32 bit wine
 
-if [ "$TERMUX_ARCH" = "i386" ]; then
+if [ "$TERMUX_ARCH" = "i686" ]; then
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386"
 fi
 
