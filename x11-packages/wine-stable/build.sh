@@ -18,6 +18,7 @@ TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS="
 --without-x
 --disable-tests
 "
+TERMUX_PKG_BLACKLISTED_ARCHES="arm, aarch64"
 
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 enable_wineandroid_drv=no
@@ -66,33 +67,32 @@ exec_prefix=$TERMUX_PREFIX
 --without-xshape
 --without-xshm
 --without-xxf86vm
+--enable-archs=i386,x86_64
 "
 
 # Enable win64 on 64-bit arches.
-if [ "$TERMUX_ARCH_BITS" = 64 ]; then
-	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-win64"
-fi
+#if [ "$TERMUX_ARCH_BITS" = 64 ]; then
+	#TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-win64"
+#fi
 
 # 32 bit wine
 
-if [ "$TERMUX_ARCH" = "i686" ]; then
-	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386"
-fi
+#if [ "$TERMUX_ARCH" = "i686" ]; then
+	#TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386"
+#fi
 
 # Enable new WoW64 support on x86_64.
-if [ "$TERMUX_ARCH" = "x86_64" ]; then
-	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386,x86_64"
-fi
-
-TERMUX_PKG_BLACKLISTED_ARCHES="arm"
+#if [ "$TERMUX_ARCH" = "x86_64" ]; then
+	#TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386,x86_64"
+#fi
 
 _setup_llvm_mingw_toolchain() {
 	# LLVM-mingw's version number must not be the same as the NDK's.
-	local _llvm_mingw_version=16
-	local _version="20230614"
+	local _llvm_mingw_version=18
+	local _version="20240417"
 	local _url="https://github.com/mstorsjo/llvm-mingw/releases/download/$_version/llvm-mingw-$_version-ucrt-ubuntu-20.04-x86_64.tar.xz"
 	local _path="$TERMUX_PKG_CACHEDIR/$(basename $_url)"
-	local _sha256sum=9ae925f9b205a92318010a396170e69f74be179ff549200e8122d3845ca243b8
+	local _sha256sum=d28ce4168c83093adf854485446011a0327bad9fe418014de81beba233ce76f1
 	termux_download $_url $_path $_sha256sum
 	local _extract_path="$TERMUX_PKG_CACHEDIR/llvm-mingw-toolchain-$_llvm_mingw_version"
 	if [ ! -d "$_extract_path" ]; then
@@ -108,6 +108,7 @@ termux_step_host_build() {
 	_setup_llvm_mingw_toolchain
 
 	# Make host wine-tools
+	(unset sudo; sudo apt update; sudo apt install libfreetype-dev:i386 -yqq)
 	"$TERMUX_PKG_SRCDIR/configure" ${TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS}
 	make -j "$TERMUX_MAKE_PROCESSES" __tooldeps__ nls/all
 }
