@@ -129,7 +129,7 @@ termux_step_pre_configure() {
 	LDFLAGS="${LDFLAGS/-Wl,-z,relro,-z,now/}"
 
 	LDFLAGS+=" -landroid-spawn"
-        LDFLAGS+=" -landroid-shmem"
+        #LDFLAGS+=" -landroid-shmem"
 }
 
 termux_step_make_install() {
