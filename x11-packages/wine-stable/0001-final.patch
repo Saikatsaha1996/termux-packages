@@ -1,0 +1,347 @@
+diff --git a/dlls/crypt32/unixlib.c b/dlls/crypt32/unixlib.c
+index 5a25544..fa695d1 100644
+--- a/dlls/crypt32/unixlib.c
++++ b/dlls/crypt32/unixlib.c
+@@ -621,6 +621,7 @@ static const char * const CRYPT_knownLocations[] = {
+  "/usr/local/share/certs/",
+  "/etc/sfw/openssl/certs",
+  "/etc/security/cacerts",  /* Android */
++ "/data/data/com.termux/files/usr/etc/ca-certificates/cacert.pem"
+ };
+ 
+ static void load_root_certs(void)
+diff --git a/dlls/dbghelp/macho_module.c b/dlls/dbghelp/macho_module.c
+index b1f457d..ed38725 100644
+--- a/dlls/dbghelp/macho_module.c
++++ b/dlls/dbghelp/macho_module.c
+@@ -1628,7 +1628,8 @@ static BOOL macho_search_and_load_file(struct process* pcs, const WCHAR* filenam
+     {
+         const WCHAR* fallback = process_getenv(pcs, L"DYLD_FALLBACK_LIBRARY_PATH");
+         if (!fallback)
+-            fallback = L"/usr/local/lib:/lib:/usr/lib";
++            //fallback = L"/usr/local/lib:/lib:/usr/lib";
++            fallback = L"/data/data/com.termux/files/usr/lib:/usr/local/lib:/lib:/usr/lib";
+         ret = search_unix_path(p, fallback, macho_load_file_cb, &load_params);
+     }
+     if (!ret && p == filename)
+diff --git a/dlls/dbghelp/module.c b/dlls/dbghelp/module.c
+index b8848f4..dfa2eb3 100644
+--- a/dlls/dbghelp/module.c
++++ b/dlls/dbghelp/module.c
+@@ -709,9 +709,9 @@ static struct image_file_map* image_locate_build_id_target(const BYTE* id, unsig
+ 
+     if (!(fmap_link = HeapAlloc(GetProcessHeap(), 0, sizeof(*fmap_link))))
+         return NULL;
+-    if (image_locate_build_id_target_in_dir(fmap_link, id, idlen, L"/usr/lib/debug/.build-id/"))
++    if (image_locate_build_id_target_in_dir(fmap_link, id, idlen, L"/data/data/com.termux/files/usr/lib/debug/.build-id/"))
+         return fmap_link;
+-    if (image_locate_build_id_target_in_dir(fmap_link, id, idlen, L"/usr/lib/.build-id/"))
++    if (image_locate_build_id_target_in_dir(fmap_link, id, idlen, L"/data/data/com.termux/files/usr/lib/.build-id/"))
+         return fmap_link;
+ 
+     sz = GetEnvironmentVariableW(L"WINEHOMEDIR", NULL, 0);
+@@ -797,7 +797,7 @@ struct image_file_map* image_load_debugaltlink(struct image_file_map* fmap, stru
+                 if (!ret)
+                 {
+                     dst = HeapAlloc(GetProcessHeap(), 0,
+-                                    sizeof(L"/usr/lib/debug/.build-id/") + (3 + filename_len + idlen * 2) * sizeof(WCHAR));
++                                    sizeof(L"/data/data/com.termux/files/usr/lib/debug/.build-id/") + (3 + filename_len + idlen * 2) * sizeof(WCHAR));
+                     if (dst)
+                     {
+                         WCHAR* p;
+@@ -807,7 +807,7 @@ struct image_file_map* image_load_debugaltlink(struct image_file_map* fmap, stru
+                          * where the alternate file is...
+                          * so try both
+                          */
+-                        p = memcpy(dst, L"/usr/lib/debug/.build-id/", sizeof(L"/usr/lib/debug/.build-id/"));
++                        p = memcpy(dst, L"/data/data/com.termux/files/usr/lib/debug/.build-id/", sizeof(L"/data/data/com.termux/files/usr/lib/debug/.build-id/"));
+                         p += wcslen(dst);
+                         MultiByteToWideChar(CP_UNIXCP, 0, data, -1, p, filename_len);
+                         ret = image_check_debug_link_gnu_id(dst, fmap_link, id, idlen);
+diff --git a/dlls/msvcrt/tests/environ.c b/dlls/msvcrt/tests/environ.c
+index 1d1bfd2..ed26b85 100644
+--- a/dlls/msvcrt/tests/environ.c
++++ b/dlls/msvcrt/tests/environ.c
+@@ -43,7 +43,8 @@ static const char *a_very_long_env_string =
+  "/lib/mingw32/3.4.2/;"
+  "/lib/;"
+  "/usr/lib/mingw32/3.4.2/;"
+- "/usr/lib/";
++ "/usr/lib/;"
++ "/data/data/com.termux/files/usr/lib/";
+ 
+ static char ***(__cdecl *p__p__environ)(void);
+ static WCHAR ***(__cdecl *p__p__wenviron)(void);
+diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
+index 68cd4f5..a49b5c1 100644
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -77,7 +77,8 @@
+ #else
+   extern char **environ;
+ #endif
+-#ifdef __ANDROID__
++//#ifdef __ANDROID__
++#if defined(__ANDROID__) && ! defined(__TERMUX__)
+ # include <jni.h>
+ #endif
+ 
+@@ -471,7 +472,7 @@ static void init_paths( char *argv[] )
+     if (!(build_dir = remove_tail( ntdll_dir, "/dlls/ntdll" )))
+     {
+         if (!(dll_dir = remove_tail( ntdll_dir, so_dir ))) dll_dir = ntdll_dir;
+-#if (defined(__linux__) && !defined(__ANDROID__)) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
++#if (defined(__linux__) && !(defined(__ANDROID__) && ! defined(__TERMUX__))) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
+         bin_dir = realpath_dirname( "/proc/self/exe" );
+ #elif defined (__FreeBSD__) || defined(__DragonFly__)
+         {
+@@ -1872,7 +1873,7 @@ static void start_main_thread(void)
+     server_init_process_done();
+ }
+ 
+-#ifdef __ANDROID__
++#if defined(__ANDROID__) && ! defined(__TERMUX__)
+ 
+ #ifndef WINE_JAVA_CLASS
+ #define WINE_JAVA_CLASS "org/winehq/wine/WineActivity"
+diff --git a/dlls/ntdll/unix/server.c b/dlls/ntdll/unix/server.c
+index b40e7c2..79d786c 100644
+--- a/dlls/ntdll/unix/server.c
++++ b/dlls/ntdll/unix/server.c
+@@ -1252,10 +1252,11 @@ static const char *init_server_dir( dev_t dev, ino_t ino )
+ {
+     char *dir = NULL;
+ 
+-#ifdef __ANDROID__  /* there's no /tmp dir on Android */
++//#ifdef __ANDROID__  /* there's no /tmp dir on Android */
++#if defined(__ANDROID__) && ! defined(__TERMUX__)  /* there's no /tmp dir on Android */
+     asprintf( &dir, "%s/.wineserver/server-%llx-%llx", config_dir, (unsigned long long)dev, (unsigned long long)ino );
+ #else
+-    asprintf( &dir, "/tmp/.wine-%u/server-%llx-%llx", getuid(), (unsigned long long)dev, (unsigned long long)ino );
++    asprintf( &dir, "/data/data/com.termux/files/usr/tmp/.wine-%u/server-%llx-%llx", getuid(), (unsigned long long)dev, (unsigned long long)ino );
+ #endif
+     return dir;
+ }
+@@ -1297,8 +1298,10 @@ static int setup_config_dir(void)
+     if (!mkdir( "dosdevices", 0777 ))
+     {
+         mkdir( "drive_c", 0777 );
++        mkdir( "drive_d", 0777 );
++        symlink( "/sdcard", "dosdevices/d:" );
+         symlink( "../drive_c", "dosdevices/c:" );
+-        symlink( "/", "dosdevices/z:" );
++        symlink( "/data/data/com.termux/files", "dosdevices/z:" );
+     }
+     else if (errno != EEXIST) fatal_perror( "cannot create %s/dosdevices", config_dir );
+ 
+diff --git a/dlls/ntdll/unix/socket.c b/dlls/ntdll/unix/socket.c
+index a02194f..a32b4d3 100644
+--- a/dlls/ntdll/unix/socket.c
++++ b/dlls/ntdll/unix/socket.c
+@@ -54,7 +54,7 @@
+ #  include <linux/types.h>
+ # endif
+ # include <linux/ipx.h>
+-# ifdef SOL_IPX
++# if defined(SOL_IPX) && !defined(__ANDROID__) && !defined(__TERMUX__)
+ #  define HAS_IPX
+ # endif
+ #endif
+diff --git a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
+index 0c0a12c..c9a7960 100644
+--- a/dlls/ntdll/unix/virtual.c
++++ b/dlls/ntdll/unix/virtual.c
+@@ -163,9 +163,9 @@ static void *address_space_start = (void *)0x110000; /* keep DOS area clear */
+ static void *address_space_start = (void *)0x10000;
+ #endif
+ #ifdef _WIN64
+-static void *address_space_limit = (void *)0x7fffffff0000;  /* top of the total available address space */
+-static void *user_space_limit    = (void *)0x7fffffff0000;  /* top of the user address space */
+-static void *working_set_limit   = (void *)0x7fffffff0000;  /* top of the current working set */
++static void *address_space_limit = (void *)0x7fffff0000;  /* top of the total available address space */
++static void *user_space_limit    = (void *)0x7fffff0000;  /* top of the user address space */
++static void *working_set_limit   = (void *)0x7fffff0000;  /* top of the current working set */
+ #else
+ static void *address_space_limit = (void *)0xc0000000;
+ static void *user_space_limit    = (void *)0x7fff0000;
+@@ -4545,7 +4545,12 @@ static NTSTATUS allocate_virtual_memory( void **ret, SIZE_T *size_ptr, ULONG typ
+ 
+     /* Round parameters to a page boundary */
+ 
+-    if (is_beyond_limit( 0, size, working_set_limit )) return STATUS_WORKING_SET_LIMIT_RANGE;
++    // Get the environment variable value, default to 4096L << 20 if not set
++    const char *env_var = getenv("WINE_VIRTUAL_MEMORY_SIZE");
++    ULONG_PTR env_size_limit = env_var ? strtol(env_var, NULL, 10) << 20 : 4096L << 20;
++
++    if (is_beyond_limit( 0, size, working_set_limit ) || size > env_size_limit)
++        return STATUS_WORKING_SET_LIMIT_RANGE;
+ 
+     if (*ret)
+     {
+diff --git a/dlls/win32u/Makefile.in b/dlls/win32u/Makefile.in
+index 6326a3c..fba9da0 100644
+--- a/dlls/win32u/Makefile.in
++++ b/dlls/win32u/Makefile.in
+@@ -4,7 +4,7 @@ UNIXLIB   = win32u.so
+ IMPORTLIB = win32u
+ IMPORTS   = ntdll winecrt0
+ UNIX_CFLAGS  = $(FREETYPE_CFLAGS) $(FONTCONFIG_CFLAGS)
+-UNIX_LIBS    = $(CARBON_LIBS) $(APPKIT_LIBS) $(PTHREAD_LIBS) -lm
++UNIX_LIBS    = $(CARBON_LIBS) $(APPKIT_LIBS) $(PTHREAD_LIBS) -lm -lfontconfig
+ 
+ EXTRADLLFLAGS = -nodefaultlibs
+ 
+diff --git a/dlls/win32u/freetype.c b/dlls/win32u/freetype.c
+index d1e46a6..ec18aab 100644
+--- a/dlls/win32u/freetype.c
++++ b/dlls/win32u/freetype.c
+@@ -192,7 +192,8 @@ static FT_Error (*pFT_Library_SetLcdFilter)(FT_Library, FT_LcdFilter);
+ static FT_Error (*pFT_Property_Set)(FT_Library, const FT_String *, const FT_String *, const void *);
+ 
+ #ifdef SONAME_LIBFONTCONFIG
+-#include <fontconfig/fontconfig.h>
++//#include <fontconfig/fontconfig.h>
++#include <fontconfig/fontconfig.h>
+ MAKE_FUNCPTR(FcConfigSubstitute);
+ MAKE_FUNCPTR(FcDefaultSubstitute);
+ MAKE_FUNCPTR(FcFontList);
+diff --git a/dlls/winepulse.drv/Makefile.in b/dlls/winepulse.drv/Makefile.in
+index bfaf715..21d9aab 100644
+--- a/dlls/winepulse.drv/Makefile.in
++++ b/dlls/winepulse.drv/Makefile.in
+@@ -1,7 +1,7 @@
+ MODULE    = winepulse.drv
+ UNIXLIB   = winepulse.so
+ IMPORTS   = dxguid uuid winmm user32 advapi32 ole32
+-UNIX_LIBS    = $(PULSE_LIBS) $(PTHREAD_LIBS) -lm
++UNIX_LIBS    = $(PULSE_LIBS) $(PTHREAD_LIBS) -lm -lpulse
+ UNIX_CFLAGS  = $(PULSE_CFLAGS)
+ 
+ SOURCES = \
+diff --git a/dlls/winepulse.drv/pulse.c b/dlls/winepulse.drv/pulse.c
+index 050609d..2af3e3f 100644
+--- a/dlls/winepulse.drv/pulse.c
++++ b/dlls/winepulse.drv/pulse.c
+@@ -240,12 +240,16 @@ static int pulse_poll_func(struct pollfd *ufds, unsigned long nfds, int timeout,
+ 
+ static NTSTATUS pulse_process_attach(void *args)
+ {
+++#if defined(__ANDROID__) && ! defined(__TERMUX__)
++    if (1)
++#else
+     pthread_mutexattr_t attr;
+ 
+     pthread_mutexattr_init(&attr);
+     pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT);
+ 
+     if (pthread_mutex_init(&pulse_mutex, &attr) != 0)
++#endif
+         pthread_mutex_init(&pulse_mutex, NULL);
+ 
+ #ifdef _WIN64
+diff --git a/dlls/winex11.drv/Makefile.in b/dlls/winex11.drv/Makefile.in
+index 9806dd3..d196562 100644
+--- a/dlls/winex11.drv/Makefile.in
++++ b/dlls/winex11.drv/Makefile.in
+@@ -2,7 +2,7 @@ MODULE    = winex11.drv
+ UNIXLIB   = winex11.so
+ IMPORTS   = uuid user32 gdi32 win32u
+ UNIX_CFLAGS  = $(X_CFLAGS)
+-UNIX_LIBS    = -lwin32u $(X_LIBS) $(PTHREAD_LIBS) -lm
++UNIX_LIBS    = -lwin32u $(X_LIBS) $(PTHREAD_LIBS) -lm -landroid-shmem
+ 
+ SOURCES = \
+ 	bitblt.c \
+diff --git a/loader/preloader.c b/loader/preloader.c
+index d0551ba..2f8eede 100644
+--- a/loader/preloader.c
++++ b/loader/preloader.c
+@@ -1447,7 +1447,7 @@ void* wld_start( void **stack )
+         {
+             /* don't warn for low 64k */
+             if (preload_info[i].addr >= (void *)0x10000
+-#ifdef __aarch64__
++#if 1
+                 && preload_info[i].addr < (void *)0x7fffffffff /* ARM64 address space might end here*/
+ #endif
+             )
+diff --git a/programs/winebrowser/main.c b/programs/winebrowser/main.c
+index 2441607..18f7337 100644
+--- a/programs/winebrowser/main.c
++++ b/programs/winebrowser/main.c
+@@ -116,6 +116,7 @@ static int open_http_url( const WCHAR *url )
+ {
+     static const WCHAR defaultbrowsers[] =
+         L"xdg-open\0"
++        "/data/data/com.termux/files/usr/bin/open\0"
+         "/usr/bin/open\0"
+         "firefox\0"
+         "konqueror\0"
+@@ -141,7 +142,8 @@ static int open_http_url( const WCHAR *url )
+ static int open_mailto_url( const WCHAR *url )
+ {
+     static const WCHAR defaultmailers[] =
+-        L"/usr/bin/open\0"
++        L"/data/data/com.termux/files/usr/bin/open"
++        "/usr/bin/open\0"
+         "xdg-email\0"
+         "mozilla-thunderbird\0"
+         "thunderbird\0"
+diff --git a/programs/winemenubuilder/winemenubuilder.c b/programs/winemenubuilder/winemenubuilder.c
+index 36569fa..6988302 100644
+--- a/programs/winemenubuilder/winemenubuilder.c
++++ b/programs/winemenubuilder/winemenubuilder.c
+@@ -1724,7 +1724,7 @@ static BOOL build_native_mime_types(struct list *mime_types)
+     if (_wgetenv( L"XDG_DATA_DIRS" ))
+         dirs = xwcsdup( _wgetenv( L"XDG_DATA_DIRS" ));
+     else
+-        dirs = xwcsdup( L"/usr/local/share/:/usr/share/" );
++        dirs = xwcsdup( L"/data/data/com.termux/files/usr/local/share:/data/data/com.termux/files/usr/share" );
+ 
+     ret = add_mimes(xdg_data_dir, mime_types);
+     if (ret)
+diff --git a/server/mapping.c b/server/mapping.c
+index 4bdd7c5..61b3429 100644
+--- a/server/mapping.c
++++ b/server/mapping.c
+@@ -261,7 +261,7 @@ void init_memory(void)
+ {
+     page_mask = sysconf( _SC_PAGESIZE ) - 1;
+     free_map_addr( 0x60000000, 0x1c000000 );
+-    free_map_addr( 0x600000000000, 0x100000000000 );
++    free_map_addr( 0x4000000000, 0x1000000000 );
+     if (page_mask != 0xfff)
+         fprintf( stderr, "wineserver: page size is %uk but Wine requires 4k pages, expect problems\n",
+                  (int)(page_mask + 1) / 1024 );
+diff --git a/server/request.c b/server/request.c
+index 2254315..065ff84 100644
+--- a/server/request.c
++++ b/server/request.c
+@@ -639,11 +639,12 @@ static char *create_server_dir( int force )
+ 
+     /* create the base directory if needed */
+ 
+-#ifdef __ANDROID__  /* there's no /tmp dir on Android */
++//#ifdef __ANDROID__  /* there's no /tmp dir on Android */
++#if defined(__ANDROID__) && ! defined(__TERMUX__)  /* there's no /tmp dir on Android */
+     if (asprintf( &base_dir, "%s/.wineserver", config_dir ) == -1)
+         fatal_error( "out of memory\n" );
+ #else
+-    if (asprintf( &base_dir, "/tmp/.wine-%u", getuid() ) == -1)
++    if (asprintf( &base_dir, "/data/data/com.termux/files/usr/tmp/.wine-%u", getuid() ) == -1)
+         fatal_error( "out of memory\n" );
+ #endif
+     create_dir( base_dir, &st2 );
+diff --git a/server/sock.c b/server/sock.c
+index 32d622a..c698c20 100644
+--- a/server/sock.c
++++ b/server/sock.c
+@@ -74,7 +74,7 @@
+ #  include <linux/types.h>
+ # endif
+ # include <linux/ipx.h>
+-# ifdef SOL_IPX
++# if defined(SOL_IPX) && !defined(__ANDROID__) && !defined(__TERMUX__)
+ #  define HAS_IPX
+ # endif
+ #endif
